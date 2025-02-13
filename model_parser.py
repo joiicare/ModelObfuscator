@@ -5,6 +5,7 @@ import fileinput
 # import tensorflow as tf
 import numpy as np
 import json
+from var_dump import var_dump
 tfl_source_path = './tfl_source_file/'
 tfl_output_path = './tfl_output_file/'
 tf_source_path = './tf_source_file/'
@@ -119,6 +120,7 @@ def get_attributes_params(op, interpreter):
             kwargs['const int32_t bias_dims_raw=;'] = ' '
             kwargs['float bias_raw=;'] = ' '
 
+        interpreter.allocate_tensors()
         for tensor_details in interpreter.get_tensor_details():
             if tensor_details['index'] == op['inputs'][1]:
                 filter_tensor = interpreter.get_tensor(tensor_details["index"])
@@ -134,7 +136,7 @@ def get_attributes_params(op, interpreter):
                 kwargs['filter_dims_size='] = 'filter_dims_size=' + str(filter_dims_size)
                 kwargs['filter_dims_raw='] = 'filter_dims_raw[' + str(filter_dims_size) + ']=' + filter_dims_raw
                 kwargs['filter_type='] = 'filter_type=' + tflite_type
-                kwargs['filter_raw='] = type_str + ' filter_raw[' + str(filter_item_num) + ']=' + '{' + str(filter_tensor.flatten('C').tolist()).strip('[').strip(']') + '}'
+                kwargs['filter_raw='] = type_str + ' filter_r   aw[' + str(filter_item_num) + ']=' + '{' + str(filter_tensor.flatten('C').tolist()).strip('[').strip(']') + '}'
                 kwargs['scale_filter='] = 'scale_filter=' + str(quantization_filter[0])
                 kwargs['zero_point_filter='] = 'zero_point_filter=' + str(quantization_filter[1])
                 kwargs['filter_tensor_data=filter_raw'] = type_str + '* filter_tensor_data=filter_raw'
@@ -251,6 +253,8 @@ def get_attributes_params(op, interpreter):
             kwargs['const int bias_dims_size=;'] = ' '
             kwargs['const int32_t bias_dims_raw=;'] = ' '
             kwargs['float bias_raw=;'] = ' '
+
+        interpreter.allocate_tensors()
         for tensor_details in interpreter.get_tensor_details():
             if tensor_details['index'] == op['inputs'][1]:
                 filter_tensor = interpreter.get_tensor(tensor_details["index"])
@@ -308,6 +312,8 @@ def get_attributes_params(op, interpreter):
             print("Warning: no keep_dims of mean_op found")
         else:
             kwargs['keep_dims='] = 'keep_dims=' + str.lower(str(keep_dims))
+
+        interpreter.allocate_tensors()
         for tensor_details in interpreter.get_tensor_details():
             if tensor_details['index'] == op['inputs'][1]:
                 axis_tensor = interpreter.get_tensor(tensor_details["index"])
@@ -322,12 +328,20 @@ def get_attributes_params(op, interpreter):
         #     print("Warning: no pot_scale_int16 function found")
         # else:
         #     kwargs['keep_dims='] = 'keep_dims=' + str.lower(str(keep_dims))
+        interpreter.allocate_tensors()
         for tensor_details in interpreter.get_tensor_details():
             if tensor_details['index'] == op['inputs'][1]:
-                shape_tensor = interpreter.get_tensor(tensor_details["index"]).squeeze()
-                shape_item_num = shape_tensor.size
-                kwargs['shape='] = 'shape' + '{' + str(shape_tensor.tolist()).strip('[').strip(']') + '}'
-                kwargs['shape_size='] = 'shape_size=' + str(shape_item_num)
+                interpreter.allocate_tensors()
+                try:
+                    shape_tensor = interpreter.get_tensor(op['inputs'][1]).squeeze()
+                    shape_item_num = shape_tensor.size
+                    kwargs['shape='] = 'shape' + '{' + str(shape_tensor.tolist()).strip('[').strip(']') + '}'
+                    kwargs['shape_size='] = 'shape_size=' + str(shape_item_num)
+                except:
+                    print("Error with model: ")
+                    var_dump(op)
+                    var_dump(tensor_details)
+
     elif op['builtin_options_type'] == 'ConcatenationOptions':
         try:
             axis = op['builtin_options']['axis']
@@ -363,6 +377,8 @@ def get_attributes_params(op, interpreter):
             kwargs['new_height='] = 'new_height=0'
         else:
             kwargs['new_height='] = 'new_height=' + str(new_height)
+
+        interpreter.allocate_tensors()
         for tensor_details in interpreter.get_tensor_details():
             if tensor_details['index'] == op['inputs'][1]:
                 size_tensor = interpreter.get_tensor(tensor_details["index"]).squeeze()
